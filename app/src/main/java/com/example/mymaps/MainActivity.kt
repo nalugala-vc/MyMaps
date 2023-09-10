@@ -1,22 +1,36 @@
 package com.example.mymaps
 
+import android.app.Activity
+import android.content.AbstractThreadedSyncAdapter
+import android.content.DialogInterface
 import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
+import android.view.LayoutInflater
+import android.widget.EditText
+import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.mymaps.models.Place
 import com.example.mymaps.models.UserMap
+import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.MarkerOptions
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 
 const val EXTRA_USER_MAP = "EXTRA_USER_MAP"
+private const val REQUEST_CODE :Int = 1234
+public const val EXTRA_MAP_TITLE ="EXTRA_MAP_TITLE"
 class MainActivity : AppCompatActivity() {
 
+    private lateinit var userMaps: MutableList<UserMap>
+    private lateinit var mapAdapter: MapsAdapter
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        var userMaps = generateSampleData()
+        userMaps = generateSampleData().toMutableList()
         //set layout manager on the recycler view
         var rvMaps = findViewById<RecyclerView>(R.id.rvMaps)
         rvMaps.layoutManager = LinearLayoutManager(this)
@@ -24,7 +38,7 @@ class MainActivity : AppCompatActivity() {
         //set adapter on the recycler view
 
         //BELOW , we had set the userMaps initialy as an empty list
-        rvMaps.adapter = MapsAdapter(this, userMaps,object: MapsAdapter.OnClickListener {
+         mapAdapter = MapsAdapter(this, userMaps,object: MapsAdapter.OnClickListener {
             override fun onItemClick(position: Int) {
                 Log.i("ON","On clicked position $position")
 
@@ -35,6 +49,52 @@ class MainActivity : AppCompatActivity() {
             }
 
         })
+
+        rvMaps.adapter = mapAdapter
+
+        var fabCreateActivity = findViewById<FloatingActionButton>(R.id.fabCreateMap)
+
+        fabCreateActivity.setOnClickListener{
+            Log.i("TAG","Tap on FAB")
+            showAlertDialogue()
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if(REQUEST_CODE == requestCode && resultCode == Activity.RESULT_OK){
+            val userMap = data?.getSerializableExtra(EXTRA_USER_MAP) as UserMap
+            Log.i("TAG","OnActivityResult with new map ${userMap.title}")
+            userMaps.add(userMap)
+            mapAdapter.notifyItemInserted(userMaps.size -1)
+
+        }
+        super.onActivityResult(requestCode, resultCode, data)
+    }
+
+    private fun showAlertDialogue(){
+        val mapFormView = LayoutInflater.from(this).inflate(R.layout.dialog_create_map,null)
+        var dialog = AlertDialog.Builder(this)
+            .setTitle("Map Title")
+            .setView(mapFormView)
+            .setNegativeButton("cancel",null)
+            .setPositiveButton("ok",null)
+            .show()
+
+        dialog.getButton(DialogInterface.BUTTON_POSITIVE).setOnClickListener{
+            var title = mapFormView.findViewById<EditText>(R.id.etMapTitle).text.toString()
+
+            if(title.trim().isEmpty()){
+                Toast.makeText(this,"Title must be non-empty", Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
+
+            //Navigate to create map activity
+            val intent = Intent(this,CreateMapActivity::class.java)
+            intent.putExtra(EXTRA_MAP_TITLE,title)
+            startActivityForResult(intent, REQUEST_CODE)
+            dialog.dismiss()
+        }
+
     }
 
     private fun generateSampleData(): List<UserMap> {
