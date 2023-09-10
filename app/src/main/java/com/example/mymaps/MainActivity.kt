@@ -2,6 +2,7 @@ package com.example.mymaps
 
 import android.app.Activity
 import android.content.AbstractThreadedSyncAdapter
+import android.content.Context
 import android.content.DialogInterface
 import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
@@ -18,10 +19,16 @@ import com.example.mymaps.models.UserMap
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.material.floatingactionbutton.FloatingActionButton
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.io.ObjectInputStream
+import java.io.ObjectOutputStream
 
 const val EXTRA_USER_MAP = "EXTRA_USER_MAP"
 private const val REQUEST_CODE :Int = 1234
 public const val EXTRA_MAP_TITLE ="EXTRA_MAP_TITLE"
+private const val FILENAME = "usermaps.data"
 class MainActivity : AppCompatActivity() {
 
     private lateinit var userMaps: MutableList<UserMap>
@@ -30,7 +37,8 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        userMaps = generateSampleData().toMutableList()
+
+        userMaps = deserializeUserMaps(this).toMutableList()
         //set layout manager on the recycler view
         var rvMaps = findViewById<RecyclerView>(R.id.rvMaps)
         rvMaps.layoutManager = LinearLayoutManager(this)
@@ -66,7 +74,7 @@ class MainActivity : AppCompatActivity() {
             Log.i("TAG","OnActivityResult with new map ${userMap.title}")
             userMaps.add(userMap)
             mapAdapter.notifyItemInserted(userMaps.size -1)
-
+            serializeUserMaps(this,userMaps)
         }
         super.onActivityResult(requestCode, resultCode, data)
     }
@@ -95,6 +103,30 @@ class MainActivity : AppCompatActivity() {
             dialog.dismiss()
         }
 
+    }
+
+    private fun getDataFile(context: Context): File {
+        //print the directory where this file is
+        Log.i("TAG","Getting file from directory ${context.filesDir}")
+        return File(context.filesDir,FILENAME)
+    }
+
+    //reading from a file -> de serialization
+    private fun deserializeUserMaps(context: Context): List<UserMap> {
+        Log.i("TAG","deserializeUserMaps")
+        val dataFile = getDataFile(context)
+        if(!dataFile.exists()){
+            Log.i("TAG","DATAFILE DOESNT EXIST")
+            return emptyList()
+        }
+
+        ObjectInputStream(FileInputStream(dataFile)).use { return it.readObject() as List<UserMap> }
+    }
+
+    //writing to a file -> serialization
+    private fun serializeUserMaps(context: Context,userMaps: List<UserMap>) {
+        Log.i("TAG","serializeUserMaps")
+        ObjectOutputStream(FileOutputStream(getDataFile(context))).use { it.writeObject(userMaps) }
     }
 
     private fun generateSampleData(): List<UserMap> {
